@@ -1,71 +1,65 @@
-import React, { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { actions } from './Measurements.reducer';
-import { Provider, createClient, useQuery } from 'urql';
-import { useGeolocation } from 'react-use';
+import React from 'react';
+import { useDispatch } from 'react-redux';
 import LinearProgress from '@material-ui/core/LinearProgress';
-import Chip from '../../components/Chip';
-import { IState } from '../../store';
+import { WebSocketLink } from '@apollo/client/link/ws';
+import { ApolloProvider, gql, HttpLink, split, useSubscription, ApolloClient, InMemoryCache } from "@apollo/client";
+import { getMainDefinition } from "@apollo/client/utilities";
+import { LineChart, Line } from 'recharts';
 
-const client = createClient({
-  url: 'https://react.eogresources.com/graphql',
+const wsLink = new WebSocketLink({
+  uri: 'wss://react.eogresources.com/graphql',
+  options: {
+    reconnect: true,
+  },
 });
 
-const query = `
-query($latLong: WeatherQuery!) {
-  getWeatherForLocation(latLong: $latLong) {
-    description
-    locationName
-    temperatureinCelsius
+const httpLink = new HttpLink({
+  uri: 'https://react.eogresources.com/graphql',
+});
+
+const splitLink = split(
+  ({ query }) => {
+    const definition = getMainDefinition(query);
+    return definition.kind === "OperationDefinition" && definition.operation === "subscription";
+  },
+  wsLink,
+  httpLink,
+);
+
+const client = new ApolloClient({
+  link: splitLink,
+  cache: new InMemoryCache(),
+});
+
+const newMeasurements = gql`
+  subscription MeasurementsSubs {
+    newMeasurement {
+      value
+      metric
+      at
+      unit
+    }
   }
-}
 `;
 
-const getWeather = (state: IState) => {
-  const { temperatureinFahrenheit, description, locationName } = state.weather;
-  return {
-    temperatureinFahrenheit,
-    description,
-    locationName,
-  };
-};
-
-export default () => {
-  return (
-    <Provider value={client}>
-      <Measurements />
-    </Provider>
-  );
-};
+export default () => (
+  <ApolloProvider client={client}>
+    <Measurements />
+  </ApolloProvider>
+);
 
 const Measurements = () => {
-  const getLocation = useGeolocation();
-  // Default to houston
-  const latLong = {
-    latitude: getLocation.latitude || 29.7604,
-    longitude: getLocation.longitude || -95.3698,
-  };
   const dispatch = useDispatch();
-  const { temperatureinFahrenheit, description, locationName } = useSelector(getWeather);
 
-  const [result] = useQuery({
-    query,
-    variables: {
-      latLong,
-    },
-  });
-  const { fetching, data, error } = result;
-  useEffect(() => {
-    if (error) {
-      dispatch(actions.weatherApiErrorReceived({ error: error.message }));
-      return;
-    }
-    if (!data) return;
-    const { getWeatherForLocation } = data;
-    dispatch(actions.weatherDataRecevied(getWeatherForLocation));
-  }, [dispatch, data, error]);
+  const { data, loading } = useSubscription(newMeasurements);
 
-  if (fetching) return <LinearProgress />;
+  if (loading) return <LinearProgress />;
 
-  return <Chip label={`Weather in ${locationName}: ${description} and ${temperatureinFahrenheit}°`} />;
+  return (
+    <div style={{ backgroundColor: "red", flex: 1 }}>
+      <LineChart width={400} height={400} data={data}>
+        <Line type="monotone" dataKey="uv" stroke="#8884d8" />
+      </LineChart>
+    </div>
+  );
 };
