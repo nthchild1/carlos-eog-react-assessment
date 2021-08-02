@@ -1,20 +1,31 @@
-import React from 'react';
-import { useDispatch } from 'react-redux';
-import LinearProgress from '@material-ui/core/LinearProgress';
-import { WebSocketLink } from '@apollo/client/link/ws';
-import { ApolloProvider, gql, HttpLink, split, useSubscription, ApolloClient, InMemoryCache } from "@apollo/client";
+import React, { useEffect, useState } from "react";
+import LinearProgress from "@material-ui/core/LinearProgress";
+import { WebSocketLink } from "@apollo/client/link/ws";
+import {
+  ApolloProvider,
+  gql,
+  HttpLink,
+  split,
+  useSubscription,
+  ApolloClient,
+  InMemoryCache,
+  useQuery,
+} from "@apollo/client";
 import { getMainDefinition } from "@apollo/client/utilities";
-import { LineChart, Line } from 'recharts';
+import { LineChart, Line, XAxis, CartesianGrid, YAxis } from "recharts";
+import { TextField } from "@material-ui/core";
+import Autocomplete from '@material-ui/lab/Autocomplete';
+import MetricSelect from "./MetricSelect";
 
 const wsLink = new WebSocketLink({
-  uri: 'wss://react.eogresources.com/graphql',
+  uri: "wss://react.eogresources.com/graphql",
   options: {
     reconnect: true,
   },
 });
 
 const httpLink = new HttpLink({
-  uri: 'https://react.eogresources.com/graphql',
+  uri: "https://react.eogresources.com/graphql",
 });
 
 const splitLink = split(
@@ -42,6 +53,23 @@ const newMeasurements = gql`
   }
 `;
 
+const GET_Measurements = gql`
+  query($input: MeasurementQuery!) {
+    getMeasurements(input: $input) {
+      at
+      value
+      unit
+      metric
+    }
+  }
+`;
+
+const GET_MeasurementsNames = gql`
+  query {
+    getMetrics
+  }
+`;
+
 export default () => (
   <ApolloProvider client={client}>
     <Measurements />
@@ -49,17 +77,56 @@ export default () => (
 );
 
 const Measurements = () => {
-  const dispatch = useDispatch();
+  const [now, setNow] = useState<string>("10000");
+
+  const { loading: dogsLoading, error: dogsError, data: dogsData } = useQuery(GET_Measurements, {
+    variables: {
+      input: {
+        metricName: "tubingPressure",
+        after: `${parseInt(now) - 1000000}`,
+      },
+    },
+  });
+
+  const { loading: metricsLoading, error: metricsError, data: metricsData } = useQuery(GET_MeasurementsNames);
+
+  useEffect(() => {
+    setNow(Date.now().toString(10));
+  }, []);
+
+  useEffect(() => {
+    if (dogsData && "getMeasurements" in dogsData) {
+      setMeasurements([...dogsData.getMeasurements, ...measurements]);
+    }
+  }, [dogsData && "getMeasurements" in dogsData]);
 
   const { data, loading } = useSubscription(newMeasurements);
+
+  const [measurements, setMeasurements] = useState([{}]);
+
+  useEffect(() => {
+    if (data && "newMeasurement" in data) {
+      const { newMeasurement } = data;
+      newMeasurement.metric === "flareTemp" && setMeasurements([...measurements, { ...newMeasurement }]);
+    }
+  }, [data]);
+
+  const [selectedMetrics, setSelectedMetrics] = useState([]);
 
   if (loading) return <LinearProgress />;
 
   return (
-    <div style={{ backgroundColor: "red", flex: 1 }}>
-      <LineChart width={400} height={400} data={data}>
-        <Line type="monotone" dataKey="uv" stroke="#8884d8" />
+    <div style={{ backgroundColor: "red", width: "100%", height: "100%" }}>
+      <LineChart width={1000} height={400} data={measurements} style={{ backgroundColor: "white" }}>
+        <XAxis dataKey="at" />
+        <YAxis />
+        <CartesianGrid stroke="#eee" strokeDasharray="5 5" />
+        <Line type="monotone" dataKey="value" stroke="#8884d8" />
       </LineChart>
+      <div style={{ backgroundColor: "pink" }}>
+        {/* eslint-disable-next-line react/jsx-props-no-spreading */}
+        <MetricSelect {...{ selectedMetrics, setSelectedMetrics, metricsOptions: metricsData.getMetrics }} />
+      </div>
     </div>
   );
 };
