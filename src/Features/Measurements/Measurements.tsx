@@ -1,100 +1,27 @@
 import React, { useEffect, useState } from "react";
 import LinearProgress from "@material-ui/core/LinearProgress";
-import { WebSocketLink } from "@apollo/client/link/ws";
-import {
-  ApolloProvider,
-  gql,
-  HttpLink,
-  split,
-  useSubscription,
-  ApolloClient,
-  InMemoryCache,
-  useQuery,
-  useLazyQuery,
-} from "@apollo/client";
-import { getMainDefinition } from "@apollo/client/utilities";
+import { ApolloProvider, useSubscription, useQuery } from "@apollo/client";
 import { LineChart, Line, XAxis, CartesianGrid, YAxis } from "recharts";
-import { TextField } from "@material-ui/core";
-import Autocomplete from "@material-ui/lab/Autocomplete";
 import MetricSelect from "./MetricSelect";
-
-const wsLink = new WebSocketLink({
-  uri: "wss://react.eogresources.com/graphql",
-  options: {
-    reconnect: true,
-  },
-});
-
-const httpLink = new HttpLink({
-  uri: "https://react.eogresources.com/graphql",
-});
-
-const splitLink = split(
-  ({ query }) => {
-    const definition = getMainDefinition(query);
-    return definition.kind === "OperationDefinition" && definition.operation === "subscription";
-  },
-  wsLink,
-  httpLink,
-);
-
-const client = new ApolloClient({
-  link: splitLink,
-  cache: new InMemoryCache(),
-});
-
-const newMeasurements = gql`
-  subscription MeasurementsSubs {
-    newMeasurement {
-      value
-      metric
-      at
-      unit
-    }
-  }
-`;
-
-const getMetricsNames = gql`
-  query {
-    getMetrics
-  }
-`;
-
-const getMultipleMeasurements = gql`
-  query($input: [MeasurementQuery]) {
-    getMultipleMeasurements(input: $input) {
-      metric
-      measurements {
-        at
-        value
-        metric
-        unit
-      }
-    }
-  }
-`;
-
-export default () => (
-  <ApolloProvider client={client}>
-    <Measurements />
-  </ApolloProvider>
-);
+import MeasurementsService from "./Measurements.service";
 
 const getMinutesAgoDate = minutes => new Date() - minutes * 60 * 1000;
 const timeRange = getMinutesAgoDate(30);
 
-const Measurements = () => {
+function Measurements() {
   const [selectedMetrics, setSelectedMetrics] = useState([]);
   const [displayedMetricsMeasurements, setDisplayedMetricsMeasurements] = useState({});
 
+  const { subscribeToNewMeasurements, getMetricsNames, getMultipleMeasurements } = MeasurementsService.queries;
+
   const {
-    loading: metricsNamesLoading,
+    loading: loadingMetricsNames,
     error: metricsNamesError,
     data: metricsNamesData = { getMetrics: [] },
   } = useQuery(getMetricsNames);
 
   const {
-    loading: multipleMeasurementsLoading,
+    loading: loadingMultipleMeasurements,
     error: multipleMeasurementsError,
     data: multipleMeasurementsData,
   } = useQuery(getMultipleMeasurements, {
@@ -106,11 +33,13 @@ const Measurements = () => {
     },
   });
 
-  const { data, loading } = useSubscription(newMeasurements);
+  const { data: newMeasurements, loading: loadingNewMeasurements } = useSubscription(subscribeToNewMeasurements);
+
+  const loading = loadingMetricsNames || loadingNewMeasurements;
 
   useEffect(() => {
-    if (!loading) {
-      const rawMeasurement = data.newMeasurement;
+    if (!loadingNewMeasurements) {
+      const rawMeasurement = newMeasurements.newMeasurement;
       const metricName = rawMeasurement.metric;
 
       if (metricName in displayedMetricsMeasurements) {
@@ -122,7 +51,7 @@ const Measurements = () => {
         });
       }
     }
-  }, [data]);
+  }, [newMeasurements]);
 
   useEffect(() => {
     if (multipleMeasurementsData && 'getMultipleMeasurements' in multipleMeasurementsData) {
@@ -138,9 +67,9 @@ const Measurements = () => {
 
       setDisplayedMetricsMeasurements(mappedMultipleMeasurements);
     }
-  }, [selectedMetrics, multipleMeasurementsLoading]);
+  }, [selectedMetrics, loadingMultipleMeasurements]);
 
-  if (false) return <LinearProgress />;
+  if (loading) return <LinearProgress />;
 
   return (
     <div style={{ backgroundColor: "red", width: "100%", height: "100%" }}>
@@ -164,4 +93,10 @@ const Measurements = () => {
       </div>
     </div>
   );
-};
+}
+
+export default () => (
+  <ApolloProvider client={MeasurementsService.client}>
+    <Measurements />
+  </ApolloProvider>
+);
