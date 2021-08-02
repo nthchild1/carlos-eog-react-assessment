@@ -10,11 +10,12 @@ import {
   ApolloClient,
   InMemoryCache,
   useQuery,
+  useLazyQuery,
 } from "@apollo/client";
 import { getMainDefinition } from "@apollo/client/utilities";
 import { LineChart, Line, XAxis, CartesianGrid, YAxis } from "recharts";
 import { TextField } from "@material-ui/core";
-import Autocomplete from '@material-ui/lab/Autocomplete';
+import Autocomplete from "@material-ui/lab/Autocomplete";
 import MetricSelect from "./MetricSelect";
 
 const wsLink = new WebSocketLink({
@@ -53,20 +54,23 @@ const newMeasurements = gql`
   }
 `;
 
-const GET_Measurements = gql`
-  query($input: MeasurementQuery!) {
-    getMeasurements(input: $input) {
-      at
-      value
-      unit
-      metric
-    }
+const getMetricsNames = gql`
+  query {
+    getMetrics
   }
 `;
 
-const GET_MeasurementsNames = gql`
-  query {
-    getMetrics
+const getMultipleMeasurements = gql`
+  query($input: [MeasurementQuery]) {
+    getMultipleMeasurements(input: $input) {
+      metric
+      measurements {
+        at
+        value
+        metric
+        unit
+      }
+    }
   }
 `;
 
@@ -76,56 +80,87 @@ export default () => (
   </ApolloProvider>
 );
 
-const Measurements = () => {
-  const [now, setNow] = useState<string>("10000");
+const getMinutesAgoDate = minutes => new Date() - minutes * 60 * 1000;
+const timeRange = getMinutesAgoDate(30);
 
-  const { loading: dogsLoading, error: dogsError, data: dogsData } = useQuery(GET_Measurements, {
+const Measurements = () => {
+  const [selectedMetrics, setSelectedMetrics] = useState([]);
+  const [displayedMetricsMeasurements, setDisplayedMetricsMeasurements] = useState({});
+
+  const {
+    loading: metricsNamesLoading,
+    error: metricsNamesError,
+    data: metricsNamesData = { getMetrics: [] },
+  } = useQuery(getMetricsNames);
+
+  const {
+    loading: multipleMeasurementsLoading,
+    error: multipleMeasurementsError,
+    data: multipleMeasurementsData,
+  } = useQuery(getMultipleMeasurements, {
     variables: {
-      input: {
-        metricName: "tubingPressure",
-        after: `${parseInt(now) - 1000000}`,
-      },
+      input: selectedMetrics.map(metricName => ({
+        metricName,
+        after: timeRange,
+      })),
     },
   });
 
-  const { loading: metricsLoading, error: metricsError, data: metricsData } = useQuery(GET_MeasurementsNames);
-
-  useEffect(() => {
-    setNow(Date.now().toString(10));
-  }, []);
-
-  useEffect(() => {
-    if (dogsData && "getMeasurements" in dogsData) {
-      setMeasurements([...dogsData.getMeasurements, ...measurements]);
-    }
-  }, [dogsData && "getMeasurements" in dogsData]);
-
   const { data, loading } = useSubscription(newMeasurements);
 
-  const [measurements, setMeasurements] = useState([{}]);
-
   useEffect(() => {
-    if (data && "newMeasurement" in data) {
-      const { newMeasurement } = data;
-      newMeasurement.metric === "flareTemp" && setMeasurements([...measurements, { ...newMeasurement }]);
+    if (!loading) {
+      const rawMeasurement = data.newMeasurement;
+      const metricName = rawMeasurement.metric;
+
+      if (metricName in displayedMetricsMeasurements) {
+        const oldMeasurements = displayedMetricsMeasurements[rawMeasurement.metric] || [];
+
+        setDisplayedMetricsMeasurements({
+          ...displayedMetricsMeasurements,
+          [rawMeasurement.metric]: [...oldMeasurements, rawMeasurement],
+        });
+      }
     }
   }, [data]);
 
-  const [selectedMetrics, setSelectedMetrics] = useState([]);
+  useEffect(() => {
+    if (multipleMeasurementsData && 'getMultipleMeasurements' in multipleMeasurementsData) {
+      const rawData = multipleMeasurementsData.getMultipleMeasurements;
 
-  if (loading) return <LinearProgress />;
+      const mappedMultipleMeasurements = rawData.reduce((acc, value, index) => {
+        const oldMeasurements = displayedMetricsMeasurements[value.metric] || [];
+        return {
+          ...displayedMetricsMeasurements,
+          [value.metric]: [...oldMeasurements, ...value.measurements],
+        };
+      }, displayedMetricsMeasurements);
+
+      setDisplayedMetricsMeasurements(mappedMultipleMeasurements);
+    }
+  }, [selectedMetrics, multipleMeasurementsLoading]);
+
+  if (false) return <LinearProgress />;
 
   return (
     <div style={{ backgroundColor: "red", width: "100%", height: "100%" }}>
-      <LineChart width={1000} height={400} data={measurements} style={{ backgroundColor: "white" }}>
+      <LineChart width={1000} height={400} style={{ backgroundColor: "white" }}>
         <XAxis dataKey="at" />
         <YAxis />
         <CartesianGrid stroke="#eee" strokeDasharray="5 5" />
-        <Line type="monotone" dataKey="value" stroke="#8884d8" />
+        {Object.keys(displayedMetricsMeasurements).map(metricName => (
+          <Line
+            key={metricName}
+            type="monotone"
+            dataKey="value"
+            stroke="#8884d8"
+            data={displayedMetricsMeasurements[metricName]}
+          />
+        ))}
       </LineChart>
       <div style={{ backgroundColor: "pink" }}>
         {/* eslint-disable-next-line react/jsx-props-no-spreading */}
-        <MetricSelect {...{ selectedMetrics, setSelectedMetrics, metricsOptions: metricsData.getMetrics }} />
+        <MetricSelect {...{ selectedMetrics, setSelectedMetrics, metricsOptions: metricsNamesData.getMetrics }} />
       </div>
     </div>
   );
