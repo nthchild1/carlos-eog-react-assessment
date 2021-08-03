@@ -8,7 +8,6 @@ module.exports = {
   parser: '@typescript-eslint/parser', // Specifies the ESLint parser
   extends: [
     'airbnb',
-    'plugin:prettier/recommended', // Enables eslint-plugin-prettier and displays prettier errors as ESLint errors. Make sure this is always the last configuration in the extends array.
   ],
   globals: {
     Atomics: 'readonly',
@@ -23,6 +22,7 @@ module.exports = {
   },
   plugins: ['react'],
   rules: {
+    'react/jsx-filename-extension': [2, { 'extensions': ['.js', '.jsx', '.ts', '.tsx'] }],
     quotes: ['error', 'double'],
     '@typescript-eslint/no-angle-bracket-type-assertion': 'off',
   },

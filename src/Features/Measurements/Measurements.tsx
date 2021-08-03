@@ -1,18 +1,31 @@
 import React, { useEffect, useState } from "react";
 import LinearProgress from "@material-ui/core/LinearProgress";
 import { ApolloProvider, useSubscription, useQuery } from "@apollo/client";
-import { LineChart, Line, XAxis, CartesianGrid, YAxis, Tooltip } from "recharts";
+import {
+  LineChart, Line, XAxis, CartesianGrid, YAxis, Tooltip,
+} from "recharts";
 import moment from "moment";
-import MetricSelect from './MetricSelect';
-import MeasurementsService from './Measurements.service';
+import MetricSelect from "./MetricSelect";
+import MeasurementsService from "./Measurements.service";
+import LabeledValueCard from "../../components/LabeledValueCard";
 
-/* @ts-ignore */
-const getMinutesAgoDate = minutes => new Date() - minutes * 60 * 1000;
+const getMinutesAgoDate = (minutes : number) : number => new Date().getTime() - minutes * 60 * 1000;
 const timeRange = getMinutesAgoDate(30);
 
+interface MeasurementI {
+  metric: string,
+  at: number,
+  value: number,
+  unit: string
+}
+
+interface DisplayedMetrics {
+  [key: string]: MeasurementI[]
+}
+
 function Measurements() {
-  const [selectedMetrics, setSelectedMetrics] = useState([]);
-  const [displayedMetricsMeasurements, setDisplayedMetricsMeasurements] = useState({});
+  const [selectedMetrics, setSelectedMetrics] = useState<MeasurementI["metric"] | undefined[]>([]);
+  const [displayedMetricsMeasurements, setDisplayedMetricsMeasurements] = useState<DisplayedMetrics>({});
   const [lineColors, setLineColors] = useState({});
 
   const { subscribeToNewMeasurements, getMetricsNames, getMultipleMeasurements } = MeasurementsService.queries;
@@ -26,47 +39,48 @@ function Measurements() {
   } = useQuery(getMultipleMeasurements, {
     variables: {
       /* @ts-ignore */
-      input: ((metricsNamesData && metricsNamesData.getMetrics) || []).map(metricName => ({
+      input: ((metricsNamesData && metricsNamesData.getMetrics) || []).map((metricName) => ({
         metricName,
         after: timeRange,
       })),
     },
   });
 
-  const { data: newMeasurements, loading: loadingNewMeasurements } = useSubscription(subscribeToNewMeasurements, {
-    onSubscriptionData: () => {
-      if (!loadingNewMeasurements) {
-        const rawMeasurement = newMeasurements.newMeasurement;
-        const metricName = rawMeasurement.metric;
+  const { data: newMeasurements, loading: loadingNewMeasurements } = useSubscription(
+    subscribeToNewMeasurements, {
+      onSubscriptionData: () => {
+        if (!loadingNewMeasurements) {
+          const rawMeasurement = newMeasurements.newMeasurement;
+          const metricName = rawMeasurement.metric;
 
-        if (metricName in displayedMetricsMeasurements) {
+          if (metricName in displayedMetricsMeasurements) {
           /* @ts-ignore */
-          const oldMeasurements = [...displayedMetricsMeasurements[rawMeasurement.metric]] || [];
+            const oldMeasurements = [...displayedMetricsMeasurements[rawMeasurement.metric]] || [];
 
-          oldMeasurements.shift();
+            oldMeasurements.shift();
 
-          setDisplayedMetricsMeasurements({
-            ...displayedMetricsMeasurements,
-            [rawMeasurement.metric]: [...oldMeasurements, rawMeasurement],
-          });
+            setDisplayedMetricsMeasurements({
+              ...displayedMetricsMeasurements,
+              [rawMeasurement.metric]: [...oldMeasurements, rawMeasurement],
+            });
+          }
         }
-      }
+      },
     },
-  });
+  );
 
   const loading = loadingMetricsNames || loadingNewMeasurements;
 
   useEffect(() => {
     if (
-      multipleMeasurementsData &&
-      "getMultipleMeasurements" in multipleMeasurementsData &&
-      Object.keys(displayedMetricsMeasurements).length === 0
+      multipleMeasurementsData
+      && "getMultipleMeasurements" in multipleMeasurementsData
+      && Object.keys(displayedMetricsMeasurements).length === 0
     ) {
       const rawData = multipleMeasurementsData.getMultipleMeasurements;
 
       const mappedMultipleMeasurements = rawData.reduce(
         /* @ts-ignore */
-
         (acc, value) => ({
           ...acc,
           [value.metric]: [...value.measurements],
@@ -92,21 +106,31 @@ function Measurements() {
   if (loading) return <LinearProgress />;
 
   return (
-    <div style={{ flex: 1, width: '100%', height: '100%' }}>
+    <div style={{ flex: 1, width: "100%", height: "100%" }}>
+      <div>
+        {selectedMetrics && selectedMetrics.length > 0 && selectedMetrics.map((selectedMetric) => <LabeledValueCard label={selectedMetric} value={displayedMetricsMeasurements[selectedMetric][0].at} />)}
+      </div>
       <LineChart width={1500} height={800}>
         <XAxis
           dataKey="at"
           domain={["auto", "auto"]}
           type="number"
           scale="time"
-          tickFormatter={unixTime => moment(unixTime).format("mm:ss")}
+          tickFormatter={(unixTime) => moment(unixTime).format("mm:ss")}
         />
         <CartesianGrid stroke="#eee" strokeDasharray="5 5" />
-        <Tooltip labelFormatter={label => `${moment(label).format('hh:mm:ss')} hrs.`} />
-        {selectedMetrics.map(metricName => (
-          <YAxis dataKey="value" key={`${metricName}-yaxis`} yAxisId={metricName} />
+        <Tooltip labelFormatter={(label) => `${moment(label).format("hh:mm:ss")} hrs.`} />
+        {selectedMetrics.map((metricName) => (
+          <YAxis
+            dataKey="value"
+            key={`${metricName}-yaxis`}
+            yAxisId={metricName}
+            name={metricName}
+              /* @ts-ignore */
+            unit={displayedMetricsMeasurements[metricName][0].unit}
+          />
         ))}
-        {selectedMetrics.map(metricName => (
+        {selectedMetrics.map((metricName) => (
           <Line
             key={metricName}
             name={metricName}

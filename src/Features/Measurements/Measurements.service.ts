@@ -1,5 +1,7 @@
 import { WebSocketLink } from "@apollo/client/link/ws";
-import { ApolloClient, gql, HttpLink, InMemoryCache, split } from "@apollo/client";
+import {
+  ApolloClient, gql, HttpLink, InMemoryCache, split,
+} from "@apollo/client";
 import { getMainDefinition } from "@apollo/client/utilities";
 
 const wsLink = new WebSocketLink({
@@ -8,6 +10,7 @@ const wsLink = new WebSocketLink({
     reconnect: true,
   },
 });
+
 
 const httpLink = new HttpLink({
   uri: "https://react.eogresources.com/graphql",
