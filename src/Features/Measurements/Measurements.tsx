@@ -6,12 +6,14 @@ import moment from "moment";
 import MetricSelect from './MetricSelect';
 import MeasurementsService from './Measurements.service';
 
+/* @ts-ignore */
 const getMinutesAgoDate = minutes => new Date() - minutes * 60 * 1000;
-const timeRange = getMinutesAgoDate(0.5);
+const timeRange = getMinutesAgoDate(30);
 
 function Measurements() {
   const [selectedMetrics, setSelectedMetrics] = useState([]);
   const [displayedMetricsMeasurements, setDisplayedMetricsMeasurements] = useState({});
+  const [lineColors, setLineColors] = useState({});
 
   const { subscribeToNewMeasurements, getMetricsNames, getMultipleMeasurements } = MeasurementsService.queries;
 
@@ -23,6 +25,7 @@ function Measurements() {
     data: multipleMeasurementsData,
   } = useQuery(getMultipleMeasurements, {
     variables: {
+      /* @ts-ignore */
       input: ((metricsNamesData && metricsNamesData.getMetrics) || []).map(metricName => ({
         metricName,
         after: timeRange,
@@ -37,6 +40,7 @@ function Measurements() {
         const metricName = rawMeasurement.metric;
 
         if (metricName in displayedMetricsMeasurements) {
+          /* @ts-ignore */
           const oldMeasurements = [...displayedMetricsMeasurements[rawMeasurement.metric]] || [];
 
           oldMeasurements.shift();
@@ -61,6 +65,8 @@ function Measurements() {
       const rawData = multipleMeasurementsData.getMultipleMeasurements;
 
       const mappedMultipleMeasurements = rawData.reduce(
+        /* @ts-ignore */
+
         (acc, value) => ({
           ...acc,
           [value.metric]: [...value.measurements],
@@ -72,23 +78,46 @@ function Measurements() {
     }
   }, [selectedMetrics, loadingMultipleMeasurements]);
 
+  useEffect(() => {
+    setLineColors(
+      /* @ts-ignore */
+      ((metricsNamesData && metricsNamesData.getMetrics) || []).reduce(
+        /* @ts-ignore */
+        (acc, curr) => ({ ...acc, [curr]: `#${`${Math.random().toString(16)}00000`.slice(2, 8)}` }),
+        {},
+      ),
+    );
+  }, [metricsNamesData]);
+
   if (loading) return <LinearProgress />;
 
   return (
     <div style={{ flex: 1, width: '100%', height: '100%' }}>
-      <LineChart width={1000} height={800}>
-        <XAxis dataKey="at" tickFormatter={unixTime => moment(unixTime).format("mm:ss")} />
-        <YAxis dataKey="value" />
+      <LineChart width={1500} height={800}>
+        <XAxis
+          dataKey="at"
+          domain={["auto", "auto"]}
+          type="number"
+          scale="time"
+          tickFormatter={unixTime => moment(unixTime).format("mm:ss")}
+        />
         <CartesianGrid stroke="#eee" strokeDasharray="5 5" />
         <Tooltip labelFormatter={label => `${moment(label).format('hh:mm:ss')} hrs.`} />
+        {selectedMetrics.map(metricName => (
+          <YAxis dataKey="value" key={`${metricName}-yaxis`} yAxisId={metricName} />
+        ))}
         {selectedMetrics.map(metricName => (
           <Line
             key={metricName}
             name={metricName}
-            type="monotone"
+            type="linear"
+            strokeWidth={2}
+            /* @ts-ignore */
+            unit={displayedMetricsMeasurements[metricName][0].unit}
             dataKey="value"
-            stroke="#8884d8"
+            yAxisId={metricName}
             data={displayedMetricsMeasurements[metricName]}
+            stroke={lineColors[metricName]}
           />
         ))}
       </LineChart>
