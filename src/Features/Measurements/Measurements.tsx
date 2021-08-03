@@ -5,9 +5,11 @@ import {
   LineChart, Line, XAxis, CartesianGrid, YAxis, Tooltip,
 } from "recharts";
 import moment from "moment";
+import { useDispatch } from "react-redux";
 import MetricSelect from "./MetricSelect";
 import MeasurementsService from "./Measurements.service";
 import LabeledValueCard from "../../components/LabeledValueCard";
+import { actions } from "./Measurements.reducer";
 
 const getMinutesAgoDate = (minutes : number) : number => new Date().getTime() - minutes * 60 * 1000;
 const timeRange = getMinutesAgoDate(30);
@@ -24,6 +26,7 @@ interface DisplayedMetrics {
 }
 
 function Measurements() {
+  const dispatch = useDispatch();
   const [selectedMetrics, setSelectedMetrics] = useState<MeasurementI["metric"] | undefined[]>([]);
   const [displayedMetricsMeasurements, setDisplayedMetricsMeasurements] = useState<DisplayedMetrics>({});
   const [lineColors, setLineColors] = useState({});
@@ -54,15 +57,7 @@ function Measurements() {
           const metricName = rawMeasurement.metric;
 
           if (metricName in displayedMetricsMeasurements) {
-          /* @ts-ignore */
-            const oldMeasurements = [...displayedMetricsMeasurements[rawMeasurement.metric]] || [];
-
-            oldMeasurements.shift();
-
-            setDisplayedMetricsMeasurements({
-              ...displayedMetricsMeasurements,
-              [rawMeasurement.metric]: [...oldMeasurements, rawMeasurement],
-            });
+            dispatch(actions.metricMeasurementDataReceived({ ...rawMeasurement }));
           }
         }
       },
@@ -108,7 +103,16 @@ function Measurements() {
   return (
     <div style={{ flex: 1, width: "100%", height: "100%" }}>
       <div>
-        {selectedMetrics && selectedMetrics.length > 0 && selectedMetrics.map((selectedMetric) => <LabeledValueCard label={selectedMetric} value={displayedMetricsMeasurements[selectedMetric][0].at} />)}
+        { /* @ts-ignore */}
+        {selectedMetrics && selectedMetrics.length > 0 && selectedMetrics.map(
+          /* @ts-ignore */
+          (selectedMetric) => (
+            <LabeledValueCard
+              label={selectedMetric}
+              value={displayedMetricsMeasurements[selectedMetric][0].at}
+            />
+          ),
+        )}
       </div>
       <LineChart width={1500} height={800}>
         <XAxis
@@ -120,6 +124,7 @@ function Measurements() {
         />
         <CartesianGrid stroke="#eee" strokeDasharray="5 5" />
         <Tooltip labelFormatter={(label) => `${moment(label).format("hh:mm:ss")} hrs.`} />
+        { /* @ts-ignore */}
         {selectedMetrics.map((metricName) => (
           <YAxis
             dataKey="value"
@@ -130,6 +135,7 @@ function Measurements() {
             unit={displayedMetricsMeasurements[metricName][0].unit}
           />
         ))}
+        { /* @ts-ignore */}
         {selectedMetrics.map((metricName) => (
           <Line
             key={metricName}
@@ -141,12 +147,13 @@ function Measurements() {
             dataKey="value"
             yAxisId={metricName}
             data={displayedMetricsMeasurements[metricName]}
+             /* @ts-ignore */
             stroke={lineColors[metricName]}
           />
         ))}
       </LineChart>
       <div>
-        {/* eslint-disable-next-line react/jsx-props-no-spreading */}
+        { /* @ts-ignore */}
         <MetricSelect {...{ selectedMetrics, setSelectedMetrics, metricsOptions: metricsNamesData.getMetrics }} />
       </div>
     </div>
