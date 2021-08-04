@@ -1,4 +1,4 @@
-import { createSlice, PayloadAction } from "redux-starter-kit";
+import { createSlice } from "redux-starter-kit";
 
 export type MeasurementI = {
   metric: string,
@@ -11,18 +11,14 @@ export type MetricsMeasurements = {
   [key: string]: MeasurementI[]
 }
 
-export type ApiErrorAction = {
-  error: string;
-};
-
-export interface InitialStateI {
+export interface MetricsStateI {
   metricsMeasurements: MetricsMeasurements,
-  selectedMetrics: Array<string | undefined>,
+  selectedMetrics: Array<string>,
   lineColors: {[key: string] : string},
   metricsNames: string[]
 }
 
-const initialState : InitialStateI = {
+const initialState : MetricsStateI = {
   metricsMeasurements: {},
   selectedMetrics: [],
   lineColors: {},
@@ -33,7 +29,7 @@ const slice = createSlice({
   name: "measurements",
   initialState,
   reducers: {
-    metricMeasurementDataReceived: (state, action: PayloadAction<MeasurementI>) => state,
+    metricMeasurementDataReceived: (state, action) => state,
     multipleMeasurementDataReceived: (state, action) => state,
     saveMeasurements: (state, action) => {
       state.metricsMeasurements = action.payload;
@@ -47,7 +43,7 @@ const slice = createSlice({
     updateLineColors: (state, action) => {
       state.lineColors = action.payload;
     },
-    metricsApiErrorReceived: (state, action: PayloadAction<ApiErrorAction>) => state,
+    metricsApiErrorReceived: (state, action) => state,
   },
 });
 

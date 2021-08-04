@@ -5,7 +5,7 @@ import { MetricsMeasurements } from "./Metrics.reducer";
 interface MostRecentValueCardsProps {
     selectedMetrics: string[],
     metricsMeasurements: MetricsMeasurements,
-    containerClassName: string | undefined
+    containerClassName: string
 }
 
 function MostRecentValueCards({

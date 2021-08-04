@@ -8,6 +8,7 @@ import MetricsService from "./Metrics.service";
 import { actions } from "./Metrics.reducer";
 import Charts from "./Charts";
 import MostRecentValueCards from "./MostRecentValueCards";
+import { IState } from "../../store";
 
 const getMinutesAgoDate = (minutes : number) : number => new Date().getTime() - minutes * 60 * 1000;
 const timeRange = getMinutesAgoDate(30);
@@ -26,8 +27,7 @@ function Metrics() {
   const dispatch = useDispatch();
   const classes = useStyles();
 
-  // @ts-ignore
-  const { metricsMeasurements, selectedMetrics, lineColors } = useSelector((state) => state.metrics);
+  const { metricsMeasurements, selectedMetrics, lineColors } = useSelector((state: IState) => state.metrics);
   const { subscribeToNewMeasurements, getMetricsNames, getMultipleMeasurements } = MetricsService.queries;
   const { loading: loadingMetricsNames, error: metricsNamesError, data: metricsNamesData } = useQuery(getMetricsNames);
   const {
