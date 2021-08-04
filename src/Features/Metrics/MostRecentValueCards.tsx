@@ -5,11 +5,13 @@ import { MetricsMeasurements } from "./Metrics.reducer";
 interface MostRecentValueCardsProps {
     selectedMetrics: string[],
     metricsMeasurements: MetricsMeasurements,
+    containerClassName: string | undefined
 }
 
 function MostRecentValueCards({
   selectedMetrics,
   metricsMeasurements,
+  containerClassName,
 } : MostRecentValueCardsProps) {
   const getLastKnownMeasurement = (selectedMetric : string) => {
     const lastKnownMeasurement = metricsMeasurements[selectedMetric][metricsMeasurements[selectedMetric].length - 1];
@@ -17,10 +19,7 @@ function MostRecentValueCards({
   };
 
   return (
-    <div style={{
-      display: "flex", flexDirection: "row", width: "100%", padding: "1%", alignContent: "flex-start",
-    }}
-    >
+    <div className={containerClassName}>
       {selectedMetrics && selectedMetrics.length > 0 && selectedMetrics.map(
         (selectedMetric: string) => (
           <LabeledValueCard

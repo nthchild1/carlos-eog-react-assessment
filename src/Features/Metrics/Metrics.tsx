@@ -2,9 +2,9 @@ import React, { useEffect } from "react";
 import LinearProgress from "@material-ui/core/LinearProgress";
 import { ApolloProvider, useSubscription, useQuery } from "@apollo/client";
 import { useDispatch, useSelector } from "react-redux";
+import { makeStyles } from "@material-ui/core/styles";
 import MetricSelect from "./MetricSelect";
 import MetricsService from "./Metrics.service";
-import LabeledValueCard from "../../components/LabeledValueCard";
 import { actions } from "./Metrics.reducer";
 import Charts from "./Charts";
 import MostRecentValueCards from "./MostRecentValueCards";
@@ -12,8 +12,19 @@ import MostRecentValueCards from "./MostRecentValueCards";
 const getMinutesAgoDate = (minutes : number) : number => new Date().getTime() - minutes * 60 * 1000;
 const timeRange = getMinutesAgoDate(30);
 
+const useStyles = makeStyles({
+  container: { width: "100%", height: "50%" },
+  card: {
+    display: "flex", flexDirection: "row", width: "100%", padding: "1%", alignContent: "flex-start",
+  },
+  select: {
+    flex: 1, width: "100%", padding: "2%",
+  },
+});
+
 function Metrics() {
   const dispatch = useDispatch();
+  const classes = useStyles();
 
   // @ts-ignore
   const { metricsMeasurements, selectedMetrics, lineColors } = useSelector((state) => state.metrics);
@@ -33,7 +44,7 @@ function Metrics() {
     },
   });
 
-  const { data: newMeasurements, loading: loadingNewMeasurements } = useSubscription(
+  const { data: newMeasurements, error: newMeasurementsError, loading: loadingNewMeasurements } = useSubscription(
     subscribeToNewMeasurements, {
       onSubscriptionData: () => {
         if (!loadingNewMeasurements) {
@@ -48,7 +59,7 @@ function Metrics() {
     if (metricsNamesData) {
       dispatch(actions.setMetricsNames(metricsNamesData.getMetrics));
     }
-  }, [metricsNamesData]);
+  }, [metricsNamesData, dispatch]);
 
   useEffect(() => {
     if (
@@ -60,15 +71,15 @@ function Metrics() {
         actions.multipleMeasurementDataReceived(multipleMeasurementsData.getMultipleMeasurements),
       );
     }
-  }, [selectedMetrics, loadingMultipleMeasurements]);
+  }, [selectedMetrics, loadingMultipleMeasurements, dispatch, metricsMeasurements, multipleMeasurementsData]);
 
   useEffect(() => {
-    if (metricsNamesError || multipleMeasurementsError || multipleMeasurementsError) {
-      const error = metricsNamesError || multipleMeasurementsError || multipleMeasurementsError;
+    if (metricsNamesError || multipleMeasurementsError || newMeasurementsError) {
+      const error = metricsNamesError || multipleMeasurementsError || newMeasurementsError;
       // @ts-ignore
       dispatch(actions.metricsApiErrorReceived({ error: error.message }));
     }
-  }, [metricsNamesError, metricsNamesError, multipleMeasurementsError]);
+  }, [metricsNamesError, newMeasurementsError, multipleMeasurementsError, dispatch]);
 
   const setSelectedMetrics = (newSelectedMetrics: string[]) => {
     dispatch(actions.setSelectedMetrics(newSelectedMetrics));
@@ -76,9 +87,14 @@ function Metrics() {
 
   if (loadingMetricsNames || loadingNewMeasurements || loadingMultipleMeasurements) return <LinearProgress />;
 
+
   return (
-    <div style={{ width: "100%", height: "50%" }}>
-      <MostRecentValueCards selectedMetrics={selectedMetrics} metricsMeasurements={metricsMeasurements} />
+    <div className={classes.container}>
+      <MostRecentValueCards
+        selectedMetrics={selectedMetrics}
+        metricsMeasurements={metricsMeasurements}
+        containerClassName={classes.card}
+      />
       <Charts
         selectedMetrics={selectedMetrics}
         metricsMeasurements={metricsMeasurements}
@@ -88,6 +104,7 @@ function Metrics() {
         selectedMetrics={selectedMetrics}
         setSelectedMetrics={setSelectedMetrics}
         metricsOptions={metricsNamesData.getMetrics}
+        className={classes.select}
       />
     </div>
   );

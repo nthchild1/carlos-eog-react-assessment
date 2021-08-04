@@ -4,16 +4,17 @@ import { TextField } from "@material-ui/core";
 
 interface MetricSelectProps {
   selectedMetrics: string[];
-  setSelectedMetrics: Function;
+  setSelectedMetrics: Function
   metricsOptions: string[];
+  className: string
 }
 
-function MetricSelect({ selectedMetrics, setSelectedMetrics, metricsOptions }: MetricSelectProps) {
+function MetricSelect({
+  selectedMetrics, setSelectedMetrics, metricsOptions, className,
+}: MetricSelectProps) {
   return (
     <Autocomplete
-      style={{
-        flex: 1, width: "100%", padding: "2%",
-      }}
+      className={className}
       multiple
       value={selectedMetrics}
       onChange={(event, newValue) => {
