@@ -15,16 +15,18 @@ export type ApiErrorAction = {
   error: string;
 };
 
-interface InitialStateI {
+export interface InitialStateI {
   metricsMeasurements: MetricsMeasurements,
   selectedMetrics: Array<string | undefined>,
-  lineColors: {[key: string] : string}
+  lineColors: {[key: string] : string},
+  metricsNames: string[]
 }
 
 const initialState : InitialStateI = {
   metricsMeasurements: {},
   selectedMetrics: [],
   lineColors: {},
+  metricsNames: [],
 };
 
 const slice = createSlice({
@@ -39,8 +41,15 @@ const slice = createSlice({
     setSelectedMetrics: (state, action) => {
       state.selectedMetrics = action.payload;
     },
+    setMetricsNames: (state, action) => {
+      state.metricsNames = action.payload;
+    },
+    updateLineColors: (state, action) => {
+      state.lineColors = action.payload;
+    },
+    metricsApiErrorReceived: (state, action: PayloadAction<ApiErrorAction>) => state,
   },
 });
 
-export const measurementsReducer = slice.reducer;
+export const metricsReducer = slice.reducer;
 export const { actions } = slice;

@@ -11,7 +11,6 @@ const wsLink = new WebSocketLink({
   },
 });
 
-
 const httpLink = new HttpLink({
   uri: "https://react.eogresources.com/graphql",
 });
@@ -61,7 +60,7 @@ const getMultipleMeasurements = gql`
   }
 `;
 
-const MeasurementsService = {
+const MetricsService = {
   client,
   queries: {
     subscribeToNewMeasurements,
@@ -70,4 +69,4 @@ const MeasurementsService = {
   },
 };
 
-export default MeasurementsService;
+export default MetricsService;
