@@ -1,18 +1,7 @@
 import {
-  takeEvery, call, select, put,
+  takeEvery, select, put,
 } from "redux-saga/effects";
-import { toast } from "react-toastify";
-import { PayloadAction } from "redux-starter-kit";
-import { actions as MeasurementActions, ApiErrorAction } from "./Measurements.reducer";
-
-
-function* apiErrorReceived(action: PayloadAction<ApiErrorAction>) {
-  yield call(toast.error, `Error Received: ${action.payload.error}`);
-}
-
-export function* watchApiError() {
-  yield takeEvery(MeasurementActions.weatherApiErrorReceived.type, apiErrorReceived);
-}
+import { actions as MeasurementActions } from "./Measurements.reducer";
 
 /* @ts-ignore */
 export function* receiveMeasurementData(action) {
@@ -34,9 +23,20 @@ export function* receiveMeasurementData(action) {
 
 /* @ts-ignore */
 export function* receiveMultipleMeasurementData(action) {
+  const rawData = action.payload;
 
+  const mappedMultipleMeasurements = rawData.reduce(
+    /* @ts-ignore */
+    (acc, value) => ({
+      ...acc,
+      [value.metric]: [...value.measurements],
+    }),
+    {},
+  );
+  yield put(MeasurementActions.saveMeasurements(mappedMultipleMeasurements));
 }
 
 export default function* watchMeasurementSubscription() {
   yield takeEvery(MeasurementActions.metricMeasurementDataReceived.type, receiveMeasurementData);
+  yield takeEvery(MeasurementActions.multipleMeasurementDataReceived.type, receiveMultipleMeasurementData);
 }

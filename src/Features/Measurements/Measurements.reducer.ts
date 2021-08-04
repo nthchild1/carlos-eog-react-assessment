@@ -17,12 +17,14 @@ export type ApiErrorAction = {
 
 interface InitialStateI {
   metricsMeasurements: MetricsMeasurements,
-  selectedMetrics: Array<string | undefined>
+  selectedMetrics: Array<string | undefined>,
+  lineColors: {[key: string] : string}
 }
 
 const initialState : InitialStateI = {
   metricsMeasurements: {},
   selectedMetrics: [],
+  lineColors: {},
 };
 
 const slice = createSlice({
@@ -30,9 +32,12 @@ const slice = createSlice({
   initialState,
   reducers: {
     metricMeasurementDataReceived: (state, action: PayloadAction<MeasurementI>) => state,
-    weatherApiErrorReceived: (state, action: PayloadAction<ApiErrorAction>) => state,
+    multipleMeasurementDataReceived: (state, action) => state,
     saveMeasurements: (state, action) => {
       state.metricsMeasurements = action.payload;
+    },
+    setSelectedMetrics: (state, action) => {
+      state.selectedMetrics = action.payload;
     },
   },
 });

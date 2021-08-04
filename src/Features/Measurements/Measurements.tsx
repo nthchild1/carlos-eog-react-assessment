@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import LinearProgress from "@material-ui/core/LinearProgress";
 import { ApolloProvider, useSubscription, useQuery } from "@apollo/client";
 import {
   LineChart, Line, XAxis, CartesianGrid, YAxis, Tooltip,
 } from "recharts";
 import moment from "moment";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import MetricSelect from "./MetricSelect";
 import MeasurementsService from "./Measurements.service";
 import LabeledValueCard from "../../components/LabeledValueCard";
@@ -27,12 +27,10 @@ interface DisplayedMetrics {
 
 function Measurements() {
   const dispatch = useDispatch();
-  const [selectedMetrics, setSelectedMetrics] = useState<MeasurementI["metric"] | undefined[]>([]);
-  const [displayedMetricsMeasurements, setDisplayedMetricsMeasurements] = useState<DisplayedMetrics>({});
-  const [lineColors, setLineColors] = useState({});
 
+  // @ts-ignore
+  const { metricsMeasurements, selectedMetrics, lineColors } = useSelector((state) => state.metrics);
   const { subscribeToNewMeasurements, getMetricsNames, getMultipleMeasurements } = MeasurementsService.queries;
-
   const { loading: loadingMetricsNames, error: metricsNamesError, data: metricsNamesData } = useQuery(getMetricsNames);
 
   const {
@@ -54,11 +52,7 @@ function Measurements() {
       onSubscriptionData: () => {
         if (!loadingNewMeasurements) {
           const rawMeasurement = newMeasurements.newMeasurement;
-          const metricName = rawMeasurement.metric;
-
-          if (metricName in displayedMetricsMeasurements) {
-            dispatch(actions.metricMeasurementDataReceived({ ...rawMeasurement }));
-          }
+          dispatch(actions.metricMeasurementDataReceived({ ...rawMeasurement }));
         }
       },
     },
@@ -70,32 +64,24 @@ function Measurements() {
     if (
       multipleMeasurementsData
       && "getMultipleMeasurements" in multipleMeasurementsData
-      && Object.keys(displayedMetricsMeasurements).length === 0
+      && Object.keys(metricsMeasurements).length === 0
     ) {
-      const rawData = multipleMeasurementsData.getMultipleMeasurements;
-
-      const mappedMultipleMeasurements = rawData.reduce(
-        /* @ts-ignore */
-        (acc, value) => ({
-          ...acc,
-          [value.metric]: [...value.measurements],
-        }),
-        {},
+      dispatch(
+        actions.multipleMeasurementDataReceived(multipleMeasurementsData.getMultipleMeasurements),
       );
-
-      setDisplayedMetricsMeasurements(mappedMultipleMeasurements);
     }
   }, [selectedMetrics, loadingMultipleMeasurements]);
 
+
   useEffect(() => {
-    setLineColors(
-      /* @ts-ignore */
-      ((metricsNamesData && metricsNamesData.getMetrics) || []).reduce(
-        /* @ts-ignore */
+    /*
+        setLineColors(
+    ((metricsNamesData && metricsNamesData.getMetrics) || []).reduce(
         (acc, curr) => ({ ...acc, [curr]: `#${`${Math.random().toString(16)}00000`.slice(2, 8)}` }),
         {},
-      ),
-    );
+    ),
+  );
+     */
   }, [metricsNamesData]);
 
   if (loading) return <LinearProgress />;
@@ -109,7 +95,7 @@ function Measurements() {
           (selectedMetric) => (
             <LabeledValueCard
               label={selectedMetric}
-              value={displayedMetricsMeasurements[selectedMetric][0].at}
+              value={metricsMeasurements[selectedMetric][0].at}
             />
           ),
         )}
@@ -132,7 +118,7 @@ function Measurements() {
             yAxisId={metricName}
             name={metricName}
               /* @ts-ignore */
-            unit={displayedMetricsMeasurements[metricName][0].unit}
+            unit={metricsMeasurements[metricName][0].unit}
           />
         ))}
         { /* @ts-ignore */}
@@ -143,18 +129,24 @@ function Measurements() {
             type="linear"
             strokeWidth={2}
             /* @ts-ignore */
-            unit={displayedMetricsMeasurements[metricName][0].unit}
+            unit={metricsMeasurements[metricName][0].unit}
             dataKey="value"
             yAxisId={metricName}
-            data={displayedMetricsMeasurements[metricName]}
+            data={metricsMeasurements[metricName]}
              /* @ts-ignore */
-            stroke={lineColors[metricName]}
           />
         ))}
       </LineChart>
       <div>
         { /* @ts-ignore */}
-        <MetricSelect {...{ selectedMetrics, setSelectedMetrics, metricsOptions: metricsNamesData.getMetrics }} />
+        <MetricSelect {...{
+          selectedMetrics,
+          setSelectedMetrics: (newSelectedMetrics: string[]) => {
+            dispatch(actions.setSelectedMetrics(newSelectedMetrics));
+          },
+          metricsOptions: metricsNamesData.getMetrics,
+        }}
+        />
       </div>
     </div>
   );
