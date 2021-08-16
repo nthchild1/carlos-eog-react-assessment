@@ -8,7 +8,6 @@ import {
 } from "./Metrics.reducer";
 import { ApiErrorAction } from "../Weather/reducer";
 
-
 export function* receiveMeasurementData(action : PayloadAction<MeasurementI>) {
   // @ts-ignore
   const state = yield select();

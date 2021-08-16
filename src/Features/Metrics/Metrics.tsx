@@ -23,6 +23,68 @@ const useStyles = makeStyles({
   },
 });
 
+function useMeasurements() {
+  const dispatch = useDispatch();
+
+  const { metricsMeasurements, selectedMetrics, lineColors } = useSelector((state: IState) => state.metrics);
+  const { subscribeToNewMeasurements, getMetricsNames, getMultipleMeasurements } = MetricsService.queries;
+  const { loading: loadingMetricsNames, error: metricsNamesError, data: metricsNamesData } = useQuery(getMetricsNames);
+  const {
+    loading: loadingMultipleMeasurements,
+    error: multipleMeasurementsError,
+    data: multipleMeasurementsData,
+  } = useQuery(getMultipleMeasurements, {
+    variables: {
+      /* @ts-ignore */
+      input: ((metricsNamesData && metricsNamesData.getMetrics) || []).map((metricName) => ({
+        metricName,
+        after: timeRange,
+      })),
+    },
+  });
+
+  const { data: newMeasurements, error: newMeasurementsError, loading: loadingNewMeasurements } = useSubscription(
+    subscribeToNewMeasurements, {
+      onSubscriptionData: () => {
+        if (!loadingNewMeasurements) {
+          const rawMeasurement = newMeasurements.newMeasurement;
+          dispatch(actions.metricMeasurementDataReceived({ ...rawMeasurement }));
+        }
+      },
+    },
+  );
+
+  useEffect(() => {
+    if (metricsNamesData) {
+      dispatch(actions.setMetricsNames(metricsNamesData.getMetrics));
+    }
+  }, [metricsNamesData, dispatch]);
+
+  useEffect(() => {
+    if (
+      multipleMeasurementsData
+        && "getMultipleMeasurements" in multipleMeasurementsData
+        && Object.keys(metricsMeasurements).length === 0
+    ) {
+      dispatch(
+        actions.multipleMeasurementDataReceived(multipleMeasurementsData.getMultipleMeasurements),
+      );
+    }
+  }, [selectedMetrics, loadingMultipleMeasurements, dispatch, metricsMeasurements, multipleMeasurementsData]);
+
+  useEffect(() => {
+    if (metricsNamesError || multipleMeasurementsError || newMeasurementsError) {
+      const error = metricsNamesError || multipleMeasurementsError || newMeasurementsError;
+      // @ts-ignore
+      dispatch(actions.metricsApiErrorReceived({ error: error.message }));
+    }
+  }, [metricsNamesError, newMeasurementsError, multipleMeasurementsError, dispatch]);
+
+  const setSelectedMetrics = (newSelectedMetrics: string[]) => {
+    dispatch(actions.setSelectedMetrics(newSelectedMetrics));
+  };
+}
+
 function Metrics() {
   const dispatch = useDispatch();
   const classes = useStyles();
@@ -86,7 +148,6 @@ function Metrics() {
   };
 
   if (loadingMetricsNames || loadingNewMeasurements || loadingMultipleMeasurements) return <LinearProgress />;
-
 
   return (
     <div className={classes.container}>
